@@ -1,11 +1,14 @@
 <script setup>
 import { useAuthStore } from "../stores/auth";
 
+import { useUserStore } from "../stores/user";
+
 import { useQuasar } from "quasar";
 
 import { ref } from "vue";
 
 const store = useAuthStore();
+const userStore = useUserStore();
 const $q = useQuasar();
 const emit = defineEmits();
 
@@ -41,6 +44,28 @@ async function onSubmit() {
 		}, 1000);
 	}
 }
+
+const callback = async (response) => {
+	await store.googleLogin(response);
+	if (store.isError) {
+		$q.notify({
+			color: "red-5",
+			textColor: "white",
+			icon: "warning",
+			message: store.errorMessage,
+		});
+	} else {
+		$q.notify({
+			color: "green-4",
+			textColor: "white",
+			icon: "cloud_done",
+			message: "You're logged in",
+		});
+		setTimeout(() => {
+			emit("close");
+		}, 1000);
+	}
+};
 </script>
 
 <template>
@@ -62,7 +87,7 @@ async function onSubmit() {
 						icon="close"
 						flat
 						class="float-right"
-						@click="$emit('close')"
+						@click="emit('close')"
 					></q-btn>
 				</div>
 				<div class="">
@@ -97,7 +122,7 @@ async function onSubmit() {
 								v-model="staySign"
 								label="Stay Signed In"
 							></q-checkbox>
-							<q-btn flat no-caps class="float-right" @click="$emit('forgot')"
+							<q-btn flat no-caps class="float-right" @click="emit('forgot')"
 								>Forgot password ?</q-btn
 							>
 							<q-btn
@@ -110,19 +135,21 @@ async function onSubmit() {
 					</q-form>
 					<div class="q-mt-xl text-center">
 						<span class="text-grey">or continue using</span>
-						<div class="q-gutter-sm q-mt-sm">
+						<div class="q-gutter-sm q-mt-sm row justify-center">
 							<q-btn
 								icon="fab fa-facebook-f"
 								size="sm"
 								round
 								class="bg-blue text-white"
 							></q-btn>
-							<q-btn
-								icon="fab fa-google"
-								size="sm"
-								round
-								class="bg-red text-white"
-							></q-btn>
+							<GoogleLogin :callback="callback">
+								<q-btn
+									icon="fab fa-google"
+									size="sm"
+									round
+									class="bg-red text-white"
+								></q-btn>
+							</GoogleLogin>
 							<q-btn
 								icon="fab fa-linkedin-in"
 								size="sm"
@@ -133,7 +160,7 @@ async function onSubmit() {
 					</div>
 					<div class="text-center q-mt-xl">
 						<span>First time on Groupomania ?</span>
-						<q-btn flat no-caps class="text-bold text-h7" @click="$emit('sign')"
+						<q-btn flat no-caps class="text-bold text-h7" @click="emit('sign')"
 							>Signup</q-btn
 						>
 					</div>

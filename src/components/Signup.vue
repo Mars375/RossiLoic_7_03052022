@@ -54,6 +54,28 @@ async function onSubmit() {
 	}
 }
 
+const callback = async (response) => {
+	await store.googleLogin(response);
+	if (store.isError) {
+		$q.notify({
+			color: "red-5",
+			textColor: "white",
+			icon: "warning",
+			message: store.errorMessage,
+		});
+	} else {
+		$q.notify({
+			color: "green-4",
+			textColor: "white",
+			icon: "cloud_done",
+			message: "You're logged in",
+		});
+		setTimeout(() => {
+			emit("close");
+		}, 1000);
+	}
+};
+
 function isEmailvalid(val) {
 	return /[a-z0-9]+@[a-z]+\.[a-z]{2,3}/.test(val);
 }
@@ -152,19 +174,21 @@ function isEmailvalid(val) {
 					</q-form>
 					<div class="q-mt-lg text-center">
 						<span class="text-grey">or continue using</span>
-						<div class="q-gutter-sm q-mt-md">
+						<div class="q-gutter-sm q-mt-md row justify-center">
 							<q-btn
 								icon="fab fa-facebook-f"
 								size="sm"
 								round
 								class="bg-blue text-white"
-							></q-btn>
-							<q-btn
-								icon="fab fa-google"
-								size="sm"
-								round
-								class="bg-red text-white"
-							></q-btn>
+							></q-btn
+							><GoogleLogin :callback="callback">
+								<q-btn
+									icon="fab fa-google"
+									size="sm"
+									round
+									class="bg-red text-white"
+								></q-btn>
+							</GoogleLogin>
 							<q-btn
 								icon="fab fa-linkedin-in"
 								size="sm"

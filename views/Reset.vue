@@ -37,7 +37,6 @@ async function onSubmit() {
 		});
 		setTimeout(() => {
 			router.push("/");
-			store.login = true;
 		}, 1000);
 	}
 }
