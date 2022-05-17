@@ -10,7 +10,6 @@ export const usePostStore = defineStore("postStore", {
     errorMessage: "",
     posts: [],
     post: {},
-
   }),
   actions: {
     async getAllPosts() {
@@ -68,14 +67,17 @@ export const usePostStore = defineStore("postStore", {
     async createPost(post) {
       try {
         const response = await axios.post(`${API_URL}/post`, post, { withCredentials: true });
-        if (response.status === 200) {
+        if (response.status === 200 || response.status === 201) {
           this.isError = false
-          this.post = response.data.posts
+          this.post = response.data.post
         } else {
           this.isError = true
+          this.errorMessage = response.data.message
         }
       } catch (error) {
+        console.log(error);
         this.isError = true
+        this.errorMessage = error.message
       }
     },
     async updatePost(id, post) {

@@ -24,6 +24,7 @@ watch(
 	() => store.user,
 	() => {
 		localStorage.setItem("user", JSON.stringify(store.user));
+		user.value = store.user;
 	},
 	{ deep: true } // <-- this is the important part
 );
@@ -180,16 +181,16 @@ function logout() {
 						<!-- menu when is logged -->
 						<q-item clickable @click="newPost" v-if="store.isLoggedIn">
 							<q-item-section avatar>
-								<q-icon name="add"></q-icon>
+								<q-icon name="settings"></q-icon>
 							</q-item-section>
-							<q-item-section> Nouveau Post </q-item-section>
+							<q-item-section> Parametres </q-item-section>
 						</q-item>
-						<q-item clickable @click="profile" v-if="store.isLoggedIn">
-							<q-item-section avatar>
-								<q-icon name="person"></q-icon>
-							</q-item-section>
-							<q-item-section> Mon profil </q-item-section>
-						</q-item>
+						<!-- <q-item clickable @click="profile" v-if="store.isLoggedIn"> -->
+						<!-- <q-item-section avatar> -->
+						<!-- <q-icon name="person"></q-icon> -->
+						<!-- </q-item-section> -->
+						<!-- <q-item-section> Mon profil </q-item-section> -->
+						<!-- </q-item> -->
 						<q-item clickable @click="logout" v-if="store.isLoggedIn">
 							<q-item-section avatar>
 								<q-icon name="exit_to_app"></q-icon>

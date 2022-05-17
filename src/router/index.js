@@ -25,6 +25,11 @@ router.beforeEach((to, from, next) => {
       store.isLoggedIn = true
       console.log("You're now log")
     }
+    else {
+      store.isLoggedIn = false
+      localStorage.removeItem('user')
+      console.log("You're not log")
+    }
   }
   // explicitly return false to cancel the navigation
   next()

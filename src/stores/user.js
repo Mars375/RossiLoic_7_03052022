@@ -8,13 +8,16 @@ export const useUserStore = defineStore("userStore", {
   state: () => ({
     isError: false,
     errorMessage: "",
+    user: "",
+    users: [{}],
   }),
   actions: {
-    async getAllUser() {
+    async getAllUsers() {
       try {
         const response = await axios.get(`${API_URL}/user`, { withCredentials: true });
         if (response.status === 200) {
           this.isError = false
+          this.users = response.data
         } else {
           this.isError = true
         }
@@ -27,12 +30,18 @@ export const useUserStore = defineStore("userStore", {
         const response = await axios.get(`${API_URL}/user/${id}`, { withCredentials: true });
         if (response.status === 200) {
           this.isError = false
+          return response.data
         } else {
           this.isError = true
         }
       } catch (error) {
         this.isError = true
       }
+    }
+  },
+  getters: {
+    getUserInf: (state) => {
+      state.users
     }
   }
 })
