@@ -8,8 +8,10 @@ export const usePostStore = defineStore("postStore", {
   state: () => ({
     isError: false,
     errorMessage: "",
+    likeMessage: "",
     posts: [],
     post: {},
+    likes: [],
   }),
   actions: {
     async getAllPosts() {
@@ -99,6 +101,33 @@ export const usePostStore = defineStore("postStore", {
         if (response.status === 200) {
           this.isError = false
           this.post = response.data.post
+        } else {
+          this.isError = true
+        }
+      } catch (error) {
+        this.isError = true
+      }
+    },
+    async likePost(id) {
+      try {
+        const response = await axios.post(`${API_URL}/post/${id}/like`, {}, { withCredentials: true });
+        if (response.status === 200) {
+          this.isError = false
+          this.post = response.data.post
+          this.likeMessage = response.data.message
+        } else {
+          this.isError = true
+        }
+      } catch (error) {
+        this.isError = true
+      }
+    },
+    async getLikes(id) {
+      try {
+        const response = await axios.get(`${API_URL}/post/${id}/like`, { withCredentials: true });
+        if (response.status === 200) {
+          this.isError = false
+          this.like = response.data.likes
         } else {
           this.isError = true
         }

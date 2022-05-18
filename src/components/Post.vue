@@ -1,13 +1,19 @@
 <script setup>
 import { usePostStore } from "../stores/post";
 import { useUserStore } from "../stores/user";
+import { useCommentStore } from "../stores/comment";
+import { useAuthStore } from "../stores/auth";
 
 import { ref, watch, onMounted } from "vue";
 
 import { useQuasar } from "quasar";
 
-const store = usePostStore();
+const postStore = usePostStore();
 const userStore = useUserStore();
+const commentStore = useCommentStore();
+const authStore = useAuthStore();
+
+let postIds = [];
 const posts = ref([]);
 const $q = useQuasar();
 const content = ref("");
@@ -16,30 +22,42 @@ const image = ref(null);
 const imageUrl = ref("");
 const file = ref(null);
 const loading = ref(true);
-const post = ref(null);
-const slide = ref(0);
 const commentIsVisible = ref(false);
+const comments = ref([]);
+const comment = ref("");
+const postId = ref(null);
+const slide = ref(null);
+const editing = ref(false);
+const liked = ref(false);
 
 watch(
-	() => store.posts,
+	() => postStore.posts,
 	() => {
-		posts.value = store.posts;
+		posts.value = JSON.parse(JSON.stringify(postStore.posts));
+		postIds = posts.value.map((post) => post.id);
+		slide.value = postIds[0];
+		alreadyLiked(slide.value);
 	}
 );
 
 onMounted(async () => {
-	await store.getAllPosts();
+	await postStore.getAllPosts();
 	await userStore.getAllUsers();
 	setTimeout(() => {
 		loading.value = false;
-	}, 1000);
+	}, 300);
 });
 
-const getUserOfPost = (userId) => {
+const getUserInf = (userId) => {
 	const user = JSON.parse(JSON.stringify(userStore.users)).find(
 		(user) => user.id === userId
 	);
 	return user;
+};
+
+const isCreator = (postId) => {
+	const post = postStore.posts.find((post) => post.id === postId);
+	return post.userId === authStore.user.id;
 };
 
 const handleUpload = () => {
@@ -85,19 +103,22 @@ const timeSince = (date) => {
 };
 
 const handleSubmit = async () => {
-	if (content.value.length > 0 || image.value) {
+	if (
+		(content.value.length > 0 || image.value) &&
+		!content.value.match(/^\s*$/)
+	) {
 		const data = new FormData();
 		data.append("content", content.value);
 		if (image.value) {
 			data.append("image", image.value);
 		}
-		await store.createPost(data);
-		if (store.isError) {
+		await postStore.createPost(data);
+		if (postStore.isError) {
 			$q.notify({
 				color: "red-4",
 				textColor: "white",
 				icon: "warning",
-				message: store.errorMessage,
+				message: postStore.errorMessage,
 			});
 		} else {
 			$q.notify({
@@ -106,35 +127,33 @@ const handleSubmit = async () => {
 				icon: "check",
 				message: "Post created",
 			});
-			post.value = {
-				content: content.value,
-				attachment: imageUrl.value,
-				UserId: JSON.parse(localStorage.getItem("user")).id,
-				updatedAt: new Date(),
-			};
 			content.value = "";
 			image.value = null;
 			imageUrl.value = "";
-			const copyOfPosts = JSON.parse(JSON.stringify(posts.value));
-			copyOfPosts.unshift(JSON.parse(JSON.stringify(store.post)));
+			const copyOfPosts = posts.value;
+			copyOfPosts.unshift(postStore.post);
 			posts.value = copyOfPosts;
-			setTimeout(() => {
-				console.log(store.post);
-			}, 300);
+			postIds.unshift(postStore.post.id);
+			slide.value = postIds[0];
 		}
 	} else {
-		errorMessage.value = "Please enter a message";
+		$q.notify({
+			color: "red-4",
+			textColor: "white",
+			icon: "warning",
+			message: "Please enter a message",
+		});
 	}
 };
 
 const handleDelete = async (id) => {
-	await store.deletePost(id);
-	if (store.isError) {
+	await postStore.deletePost(id);
+	if (postStore.isError) {
 		$q.notify({
 			color: "red-5",
 			textColor: "white",
 			icon: "warning",
-			message: store.errorMessage,
+			message: postStore.errorMessage,
 		});
 	} else {
 		$q.notify({
@@ -144,15 +163,172 @@ const handleDelete = async (id) => {
 			message: "Post deleted",
 		});
 		posts.value = posts.value.filter((post) => post.id !== id);
+		postIds = postIds.filter((postId) => postId !== id);
+		if (postIds.indexOf(id) - 1 >= 0) {
+			slide.value = postIds[postIds.indexOf(id) - 1];
+		} else {
+			slide.value = postIds[0];
+		}
 	}
 };
 
 const handleEdit = (id) => {
+	postId.value = id;
 	const post = posts.value.find((post) => post.id === id);
 	content.value = post.content;
-	imageUrl.value = post.image;
-	image.value = post.image;
-	file.value = post.image;
+	imageUrl.value = post.attachment;
+	image.value = post.attachment;
+	file.value = post.attachment;
+};
+
+const handleUpdate = async () => {
+	if (
+		(content.value.length > 0 || image.value) &&
+		!content.value.match(/^\s*$/)
+	) {
+		const data = new FormData();
+		data.append("content", content.value);
+		if (image.value) {
+			data.append("image", image.value);
+		}
+		await postStore.updatePost(postId.value, data);
+		if (postStore.isError) {
+			$q.notify({
+				color: "red-4",
+				textColor: "white",
+				icon: "warning",
+				message: postStore.errorMessage,
+			});
+		} else {
+			$q.notify({
+				color: "green-4",
+				textColor: "white",
+				icon: "check",
+				message: "Post updated",
+			});
+			const post = posts.value.find((post) => post.id === postId.value);
+			post.content = content.value;
+			post.attachment = imageUrl.value;
+			content.value = "";
+			image.value = null;
+			imageUrl.value = "";
+			file.value = null;
+			editing.value = false;
+		}
+	} else {
+		$q.notify({
+			color: "red-4",
+			textColor: "white",
+			icon: "warning",
+			message: "Please enter a message",
+		});
+	}
+};
+
+const sortComments = (comments) => {
+	comments.sort((a, b) => {
+		return new Date(b.createdAt) - new Date(a.createdAt);
+	});
+	return comments;
+};
+
+const showComments = async (id) => {
+	if (!commentIsVisible.value) return;
+	postId.value = id;
+	await postStore.getPost(id);
+	const post = JSON.parse(JSON.stringify(postStore.post));
+	comments.value = sortComments(post.Comments);
+};
+
+const handleSlideChange = (postId) => {
+	showComments(postId);
+	alreadyLiked(postId);
+};
+
+const handleComment = async () => {
+	if (comment.value.length > 0 && !comment.value.match(/^\s*$/)) {
+		await commentStore.createComment(comment.value, postId.value);
+		if (commentStore.isError) {
+			$q.notify({
+				color: "red-4",
+				textColor: "white",
+				icon: "warning",
+				message: postStore.errorMessage,
+			});
+		} else {
+			$q.notify({
+				color: "green-4",
+				textColor: "white",
+				icon: "check",
+				message: "Comment created",
+			});
+			comment.value = "";
+			const copyOfComments = comments.value;
+			copyOfComments.unshift(commentStore.comment);
+			comments.value = copyOfComments;
+		}
+	} else {
+		$q.notify({
+			color: "red-4",
+			textColor: "white",
+			icon: "warning",
+			message: "Please enter a message",
+		});
+	}
+};
+
+const handleDeleteComment = async (id) => {
+	if (window.confirm("Are you sure you want to delete this comment?")) {
+		await commentStore.deleteComment(postId, id);
+		if (commentStore.isError) {
+			$q.notify({
+				color: "red-5",
+				textColor: "white",
+				icon: "warning",
+				message: commentStore.errorMessage,
+			});
+		} else {
+			$q.notify({
+				color: "green-5",
+				textColor: "white",
+				icon: "check",
+				message: "Comment deleted",
+			});
+			comments.value = comments.value.filter((comment) => comment.id !== id);
+		}
+	}
+};
+
+const handleLike = async (id) => {
+	await postStore.likePost(id);
+	if (postStore.isError) {
+		$q.notify({
+			color: "red-5",
+			textColor: "white",
+			icon: "warning",
+			message: postStore.errorMessage,
+		});
+	} else {
+		$q.notify({
+			color: "green-5",
+			textColor: "white",
+			icon: "check",
+			message: postStore.likeMessage,
+		});
+		const post = posts.value.find((post) => post.id === id);
+		post.likes = postStore.post.likes;
+		alreadyLiked(id);
+	}
+};
+
+const alreadyLiked = async (id) => {
+	await postStore.getLikes(id);
+	const user = JSON.parse(localStorage.getItem("user"));
+	if (!user) {
+		liked.value = false;
+	} else {
+		liked.value = postStore.likes.find((like) => like.userId === user.id);
+	}
 };
 </script>
 
@@ -162,6 +338,7 @@ const handleEdit = (id) => {
 		<q-card-section
 			class="q-mx-auto relative-position"
 			style="max-width: 590px"
+			v-if="authStore.isLoggedIn"
 		>
 			<q-input
 				v-model="content"
@@ -217,18 +394,22 @@ const handleEdit = (id) => {
 					outline
 					label="Post"
 					@click="handleSubmit"
+					v-if="!editing"
+				/>
+				<q-btn
+					:disable="!content && !imageUrl"
+					color="primary"
+					outline
+					label="Update"
+					@click="handleUpdate"
+					v-if="editing"
 				/>
 			</div>
+			<q-separator />
 		</q-card-section>
-		<q-separator />
 		<div v-if="loading">
 			<!-- Card Loading -->
-			<q-card
-				v-for="post in posts"
-				:key="post.id"
-				style="max-width: 560px"
-				class="q-mt-md q-mx-auto"
-			>
+			<q-card style="max-width: 560px" class="q-mt-md q-mx-auto">
 				<q-item>
 					<q-item-section avatar>
 						<q-skeleton type="QAvatar" />
@@ -258,7 +439,6 @@ const handleEdit = (id) => {
 		</div>
 		<div class="q-pa-md row justify-center move" v-else>
 			<q-carousel
-				key="q-carousel"
 				v-model="slide"
 				transition-prev="slide-right"
 				transition-next="slide-left"
@@ -270,19 +450,16 @@ const handleEdit = (id) => {
 				navigation
 				padding
 				arrows
-				height="auto"
+				height="700px"
 				class="shadow-1 rounded-borders"
 				style="width: 800px"
+				@update:model-value="handleSlideChange(slide)"
 			>
-				<q-carousel-slide
-					v-for="(post, index) in posts"
-					:key="post.id"
-					:name="index"
-				>
+				<q-carousel-slide v-for="post in posts" :key="post.id" :name="post.id">
 					<div class="row justify-center items-center">
 						<q-avatar size="40px" class="q-mr-md" slot="default">
 							<q-img
-								:src="getUserOfPost(post.UserId).picture"
+								:src="getUserInf(post.UserId).picture"
 								fit="cover"
 								style="width: 100%; height: 100%"
 							/>
@@ -290,13 +467,13 @@ const handleEdit = (id) => {
 						<div class="flex row align-centers">
 							<div>
 								<q-item-label class="q-ml-sm" slot="default">
-									{{ getUserOfPost(post.UserId).lastname }}
-									{{ getUserOfPost(post.UserId).firstname }}
+									{{ getUserInf(post.UserId).lastname }}
+									{{ getUserInf(post.UserId).firstname }}
 								</q-item-label>
 							</div>
 							<div class="q-ml-sm">
 								<q-item-label caption slot="default">
-									@{{ getUserOfPost(post.UserId).username }}
+									@{{ getUserInf(post.UserId).username }}
 								</q-item-label>
 							</div>
 							<div class="q-ml-sm">
@@ -306,12 +483,15 @@ const handleEdit = (id) => {
 							</div>
 						</div>
 					</div>
-					<div class="absolute-top-left">
+					<div
+						class="absolute-top-left"
+						v-if="authStore.isLoggedIn && isCreator"
+					>
 						<q-btn
 							flat
 							color="primary"
 							icon="edit"
-							@click="handleEdit(post.id)"
+							@click="(editing = true) && handleEdit(post.id)"
 							round
 							size="11px"
 						/>
@@ -332,9 +512,22 @@ const handleEdit = (id) => {
 							@click="handleLike(post.id)"
 							round
 							size="11px"
+							v-if="liked"
 						/>
 						<q-btn
-							@click="commentIsVisible = !commentIsVisible"
+							flat
+							color="primary"
+							icon="favorite_border"
+							@click="handleLike(post.id)"
+							round
+							size="11px"
+							v-else
+						/>
+
+						<q-btn
+							@click="
+								(commentIsVisible = !commentIsVisible) && showComments(post.id)
+							"
 							flat
 							color="primary"
 							icon="comment"
@@ -348,13 +541,18 @@ const handleEdit = (id) => {
 							fit="cover"
 							style="width: 100%; height: 100%"
 						/>
+						<div
+							class="q-mt-xl text-center"
+							style="word-break: break-word"
+							v-if="post.content"
+						>
+							<q-item-label caption>
+								{{ post.content }}
+							</q-item-label>
+						</div>
 					</div>
-					<div
-						class="q-mt-xl text-center"
-						style="word-break: break-word"
-						v-if="post.content"
-					>
-						<q-item-label caption>
+					<div class="absolute-center" style="width: 80%" v-else>
+						<q-item-label class="text-body1" slot="default">
 							{{ post.content }}
 						</q-item-label>
 					</div>
@@ -362,31 +560,86 @@ const handleEdit = (id) => {
 			</q-carousel>
 			<transition key="transition" name="slide">
 				<div class="q-ml-sm" key="comment" v-if="commentIsVisible">
+					<!-- comment -->
 					<q-card
 						transition-show="flip-up"
 						transition-hide="flip-down"
-						style="width: 300px; height: 100%"
-						class="shadow-1 rounded-borders flex"
+						style="width: 300px; height: 700px"
+						class="shadow-1 rounded-borders"
 					>
-						<q-card-section>
-							<q-input
-								v-model="comment"
-								label="Comment"
-								dense
-								hide-underline
-								class="q-mb-md"
-							/>
-						</q-card-section>
-						<q-card-section>
-							<q-btn
-								flat
-								color="primary"
-								@click="handleComment(postId)"
-								label="Comment"
-								round
-								size="11px"
-							/>
-						</q-card-section>
+						<div style="height: 12%" v-if="authStore.isLoggedIn">
+							<q-card-section class="q-pa-sm" style="height: 50px">
+								<q-input
+									v-model="comment"
+									label="Comment"
+									dense
+									hide-underline
+								/>
+							</q-card-section>
+							<q-card-section class="q-pa-sm">
+								<q-btn
+									color="primary"
+									@click="handleComment(postId)"
+									label="Comment"
+									outline
+									class="float-right"
+									:disable="!comment"
+								/>
+							</q-card-section>
+						</div>
+						<div class="overflow-auto" style="height: 80%; width: 100%">
+							<div>
+								<q-card-section v-for="comment in comments" :key="comment.id">
+									<div class="flex row align-centers">
+										<q-avatar size="40px" class="q-mr-md" slot="default">
+											<q-img
+												:src="getUserInf(comment.userId).picture"
+												fit="cover"
+												style="width: 100%; height: 100%"
+											/>
+										</q-avatar>
+										<div>
+											<div class="row">
+												<q-item-label class="q-ml-sm" slot="default">
+													{{ getUserInf(comment.userId).lastname }}
+													{{ getUserInf(comment.userId).firstname }}
+												</q-item-label>
+												<div class="q-ml-xs">
+													<q-item-label caption slot="default">
+														— {{ timeSince(comment.updatedAt) }}
+													</q-item-label>
+												</div>
+											</div>
+											<div class="q-ml-sm">
+												<q-item-label caption slot="default">
+													@{{ getUserInf(comment.userId).username }}
+												</q-item-label>
+											</div>
+										</div>
+									</div>
+
+									<div
+										class="q-mt-md flex q-mb-md"
+										style="word-break: break-word"
+									>
+										{{ comment.content }}
+									</div>
+									<div>
+										<div class="absolute-top-right column">
+											<q-btn
+												flat
+												color="primary"
+												icon="delete"
+												@click="handleDeleteComment(comment.id)"
+												round
+												size="10px"
+											/>
+										</div>
+									</div>
+									<q-separator></q-separator>
+								</q-card-section>
+							</div>
+						</div>
 					</q-card>
 				</div>
 			</transition>
