@@ -30,7 +30,8 @@ export const useUserStore = defineStore("userStore", {
         const response = await axios.get(`${API_URL}/user/${id}`, { withCredentials: true });
         if (response.status === 200) {
           this.isError = false
-          return response.data
+          this.user = response.data
+          console.log(this.user);
         } else {
           this.isError = true
         }

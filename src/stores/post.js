@@ -27,7 +27,7 @@ export const usePostStore = defineStore("postStore", {
         this.isError = true
       }
     },
-    async getPostOfUser(id) {
+    async getPostsOfUser(id) {
       try {
         const response = await axios.get(`${API_URL}/post/user/${id}`, { withCredentials: true });
         if (response.status === 200) {

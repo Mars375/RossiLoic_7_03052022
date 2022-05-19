@@ -405,8 +405,8 @@ const alreadyLiked = async (id) => {
 					v-if="editing"
 				/>
 			</div>
-			<q-separator />
 		</q-card-section>
+		<q-separator v-if="authStore.isLoggedIn" />
 		<div v-if="loading">
 			<!-- Card Loading -->
 			<q-card style="max-width: 560px" class="q-mt-md q-mx-auto">

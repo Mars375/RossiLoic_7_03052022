@@ -3,6 +3,7 @@ import Signup from "../src/components/Signup.vue";
 import Login from "../src/components/Login.vue";
 import Post from "../src/components/Post.vue";
 import ForgotPwd from "../src/components/ForgotPwd.vue";
+import Profil from "../src/components/Profil.vue";
 
 import { useAuthStore } from "../src/stores/auth";
 
@@ -40,6 +41,7 @@ function changeTab(compName) {
 		Login,
 		Post,
 		ForgotPwd,
+		Profil,
 	};
 	tab.value = markRaw(lookup[compName]);
 	rightDrawerOpen.value = false;
@@ -90,6 +92,12 @@ function logout() {
 			class="lt-md"
 			v-if="tab == ForgotPwd"
 			@close="changeTab('Post')"
+		/>
+		<Profil
+			class="lt-md"
+			v-if="tab == Profil && store.isLoggedIn"
+			@close="changeTab('Post')"
+			@logout="logout()"
 		/>
 		<div class="lt-md fixed-bottom relative">
 			<q-btn
@@ -185,12 +193,16 @@ function logout() {
 							</q-item-section>
 							<q-item-section> Parametres </q-item-section>
 						</q-item>
-						<!-- <q-item clickable @click="profile" v-if="store.isLoggedIn"> -->
-						<!-- <q-item-section avatar> -->
-						<!-- <q-icon name="person"></q-icon> -->
-						<!-- </q-item-section> -->
-						<!-- <q-item-section> Mon profil </q-item-section> -->
-						<!-- </q-item> -->
+						<q-item
+							clickable
+							@click="changeTab('Profil')"
+							v-if="store.isLoggedIn"
+						>
+							<q-item-section avatar>
+								<q-icon name="person"></q-icon>
+							</q-item-section>
+							<q-item-section> Mon profil </q-item-section>
+						</q-item>
 						<q-item clickable @click="logout" v-if="store.isLoggedIn">
 							<q-item-section avatar>
 								<q-icon name="exit_to_app"></q-icon>
@@ -224,7 +236,7 @@ function logout() {
 				</q-img>
 			</q-drawer>
 			<q-page-container>
-				<component :is="Post" />
+				<component :is="Post" v-if="tab != Profil" />
 				<Login
 					v-if="tab == Login && !store.isLoggedIn"
 					@close="changeTab('Post')"
@@ -237,6 +249,10 @@ function logout() {
 					@log="changeTab('Login')"
 				/>
 				<ForgotPwd v-if="tab == ForgotPwd" @close="changeTab('Post')" />
+				<Profil
+					v-if="tab == Profil && store.isLoggedIn"
+					@close="changeTab('Post')"
+				/>
 			</q-page-container>
 		</q-layout>
 	</div>
