@@ -521,6 +521,7 @@ const alreadyLiked = async (id) => {
 							@click="handleLike(post.id)"
 							round
 							size="11px"
+							:disable="!authStore.isLoggedIn"
 							v-else
 						/>
 
