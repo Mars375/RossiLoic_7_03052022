@@ -3,7 +3,9 @@ import { useAuthStore } from "../stores/auth";
 import { useUserStore } from "../stores/user";
 import { usePostStore } from "../stores/post";
 
-import { ref, onBeforeMount, watch } from "vue";
+import EditProfil from "../components/EditProfil.vue";
+
+import { ref, watch, onUpdated, onMounted } from "vue";
 
 import { useRouter } from "vue-router";
 
@@ -15,15 +17,21 @@ const authStore = useAuthStore();
 const userStore = useUserStore();
 const postStore = usePostStore();
 const userId = ref(null);
+const user = ref(null);
 const isLoading = ref(true);
 const slide = ref(null);
 const posts = ref([]);
 const liked = ref(false);
+const post = ref(null);
 const commentIsVisible = ref(false);
 const postId = ref(null);
 const comments = ref([]);
-const comment = ref("");
+const userWhoLiked = ref(false);
 let postIds = [];
+const image = ref(null);
+const imageUrl = ref(null);
+const file = ref(null);
+const handleEdit = ref(false);
 
 watch(
 	() => postStore.posts,
@@ -38,11 +46,16 @@ watch(
 	}
 );
 
-onBeforeMount(async () => {
+onUpdated(() => {
+	alreadyLiked(slide.value);
+});
+
+onMounted(async () => {
 	userId.value = JSON.parse(localStorage.getItem("user")).id;
 	await postStore.getPostsOfUser(userId.value);
 	await userStore.getUser(userId.value);
 	await userStore.getAllUsers();
+	user.value = userStore.user;
 	setTimeout(() => {
 		isLoading.value = false;
 	}, 1000);
@@ -51,6 +64,11 @@ onBeforeMount(async () => {
 const getUserInf = (userId) => {
 	const user = userStore.users.find((user) => user.id === userId);
 	return user;
+};
+
+const handleSlideChange = (postId) => {
+	showComments(postId);
+	alreadyLiked(postId);
 };
 
 const timeSince = (date) => {
@@ -80,14 +98,28 @@ const timeSince = (date) => {
 		return seconds + " s";
 	}
 };
-
-const isCreator = (postId, userId) => {
+const isCreator = (content) => {
+	if (document.cookie.includes("jwt")) {
+		const token = document.cookie
+			.split(";")
+			.find((cookie) => cookie.includes("jwt"));
+		const decoded = jwt_decode(token.split("=")[1]);
+		if (decoded.isAdmin === true) {
+			return true;
+		}
+	}
 	if (!postStore.posts) {
 		return;
 	}
-	const post = postStore.posts.find((post) => post.id === postId);
-	const user = JSON.parse(localStorage.getItem("user"));
-	return userId === user.id;
+	if (content.UserId) {
+		const user = JSON.parse(localStorage.getItem("user"));
+		return content.UserId === user.id;
+	}
+	if (content.userId) {
+		const user = JSON.parse(localStorage.getItem("user"));
+		return content.userId === user.id;
+	}
+	return false;
 };
 
 const showComments = async (id) => {
@@ -160,9 +192,103 @@ const sortComments = (comments) => {
 	return comments;
 };
 
+const handleUpload = () => {
+	if (image.value) {
+		imageUrl.value = URL.createObjectURL(image.value);
+	}
+};
+
+const handleEditBackground = () => {
+	file.value.pickFiles();
+};
+
+const closeImage = () => {
+	imageUrl.value = "";
+};
+
 const handleBack = () => {
 	localStorage.removeItem("tab");
 	router.go();
+};
+
+const handleDelete = async (id) => {
+	$q.dialog({
+		title: "Delete post",
+		message: "Are you sure you want to delete this post?",
+		ok: "Yes",
+		cancel: true,
+		persistent: true,
+	})
+		.onOk(async () => {
+			await postStore.deletePost(id);
+			if (postStore.isError) {
+				$q.notify({
+					color: "red-5",
+					textColor: "white",
+					icon: "warning",
+					message: postStore.errorMessage,
+				});
+			} else {
+				$q.notify({
+					color: "green-5",
+					textColor: "white",
+					icon: "check",
+					message: "Post deleted",
+				});
+				posts.value = posts.value.filter((post) => post.id !== id);
+				if (postIds.indexOf(id) - 1 >= 0) {
+					slide.value = postIds[postIds.indexOf(id) - 1];
+				} else {
+					slide.value = postIds[0];
+				}
+				postIds = postIds.filter((postId) => postId !== id);
+			}
+		})
+		.onCancel(() => {
+			$q.notify({
+				color: "red-5",
+				textColor: "white",
+				icon: "warning",
+				message: "Post not deleted",
+			});
+		});
+};
+
+const refreshUser = () => {
+	handleEdit.value = false;
+	isLoading.value = true;
+	user.value = userStore.user;
+	setTimeout(() => {
+		isLoading.value = false;
+	}, 1000);
+};
+
+const showWhoLiked = async (postLiked) => {
+	userWhoLiked.value = true;
+	post.value = postLiked;
+};
+
+const handleUploadBackground = async () => {
+	const formData = new FormData();
+	formData.append("image", image.value);
+	await userStore.updateBackground(user.value.id, formData);
+	if (userStore.isError) {
+		$q.notify({
+			color: "red-5",
+			textColor: "white",
+			icon: "warning",
+			message: userStore.errorMessage,
+		});
+	} else {
+		$q.notify({
+			color: "green-5",
+			textColor: "white",
+			icon: "check",
+			message: "Background updated",
+		});
+		user.value.background = userStore.user.background;
+		imageUrl.value = "";
+	}
 };
 </script>
 
@@ -175,12 +301,44 @@ const handleBack = () => {
 		</div>
 		<div v-else>
 			<q-img
-				:src="userStore.user.background"
+				:src="user.background"
 				fit="cover"
 				contain
 				class="pa-0"
 				style="height: 300px"
+				v-if="!imageUrl"
 			/>
+			<div v-if="imageUrl">
+				<q-img :src="imageUrl" style="height: 300px" /><q-btn
+					@click="closeImage"
+					icon="close"
+					flat
+					round
+					color="primary"
+					class="flex absolute-top-right"
+				></q-btn>
+			</div>
+			<q-file
+				style="display: none"
+				v-model="image"
+				@update:model-value="handleUpload"
+				ref="file"
+				accept="image/jpg, image/jpeg, image/png, image/gif, video/x-msvideo, video/mp4, viideo/mpeg, video/ogg, video/mp2t, video/webm, video/3gpp, video/3gpp2"
+			></q-file>
+			<q-btn
+				flat
+				@click="handleEditBackground"
+				label="Edit background"
+				class="absolute-top-right q-mt-xl"
+				v-if="!imageUrl"
+			></q-btn>
+			<q-btn
+				flat
+				@click="handleUploadBackground"
+				label="Upload background"
+				class="absolute-top-right q-mt-xl"
+				v-if="imageUrl"
+			></q-btn>
 			<q-icon
 				name="arrow_back"
 				@click="handleBack"
@@ -196,23 +354,34 @@ const handleBack = () => {
 				<q-card-section style="width: 30%" class="q-py-none">
 					<div class="column items-center">
 						<q-avatar size="150px" class="q-mt-lg">
-							<q-img :src="userStore.user.picture" class="pa-0" />
+							<q-img :src="user.picture" class="pa-0" />
 						</q-avatar>
 						<p class="q-mt-md text-h6 q-mb-none">
-							{{ userStore.user.firstname }} {{ userStore.user.lastname }}
+							{{ user.firstname }} {{ user.lastname }}
 						</p>
+						<div class="absolute-top-right q-mt-xl">
+							<q-btn
+								label="Edit"
+								color="primary"
+								flat
+								@click="handleEdit = true"
+								class="q-mt-xl"
+							/>
+							<EditProfil v-if="handleEdit" @close="refreshUser" />
+						</div>
+
 						<div class="text-center text-caption text-weight-light text-grey-7">
-							<p class="no-margin">@{{ userStore.user.username }}</p>
+							<p class="no-margin">@{{ user.username }}</p>
 							<p class="no-margin">
-								{{ userStore.user.email }}
+								{{ user.email }}
 							</p>
 						</div>
 						<div class="row justify-evenly q-mt-lg" style="width: 100%">
 							<p class="no-margin text-grey-8">
-								{{ userStore.user.Follows.length }}
+								{{ user.Follows.length }}
 							</p>
 							<p class="no-margin text-grey-8">
-								{{ userStore.user.Follows.length }}
+								{{ user.Follows.length }}
 							</p>
 						</div>
 						<div
@@ -276,6 +445,7 @@ const handleBack = () => {
 						height="700px"
 						class="shadow-1 rounded-borders q-mx-auto"
 						style="width: 80%"
+						@update:model-value="handleSlideChange(slide)"
 					>
 						<q-carousel-slide
 							v-for="post in postStore.posts"
@@ -324,35 +494,66 @@ const handleBack = () => {
 							</div>
 							<div class="absolute-top-right">
 								<q-btn
+									class="q-mt-sm"
 									flat
 									color="primary"
 									icon="favorite"
-									@click="handleLike(post.id)"
+									@click.prevent="handleLike(post.id)"
 									round
-									size="11px"
+									size="14px"
 									v-if="liked"
-								/>
+								>
+									<q-btn
+										class="q-mt-md"
+										size="11px"
+										color="red"
+										floating
+										dense
+										padding="0 4px"
+										:label="post.likes ? post.likes : ''"
+										@click.stop="showWhoLiked(post)"
+										style="pointer-events: auto"
+									/>
+								</q-btn>
 								<q-btn
+									class="q-mt-sm"
 									flat
 									color="primary"
 									icon="favorite_border"
-									@click="handleLike(post.id)"
+									@click.prevent="handleLike(post.id)"
 									round
-									size="11px"
+									size="14px"
 									:disable="!authStore.isLoggedIn"
 									v-else
 								/>
 								<q-btn
+									class="q-mt-sm"
 									@click="
 										(commentIsVisible = !commentIsVisible) &&
 											showComments(post.id)
 									"
 									flat
 									color="primary"
-									icon="comment"
 									round
-									size="11px"
-								/>
+									size="14px"
+								>
+									<q-icon class="q-mt-xs" name="comment" />
+									<q-btn
+										class="q-mt-md"
+										size="11px"
+										color="red"
+										floating
+										dense
+										padding="0 4px"
+										:label="
+											post.Comments
+												? post.Comments.length > 0
+													? post.Comments.length
+													: ''
+												: ''
+										"
+									/>
+								</q-btn>
 							</div>
 							<div v-if="post.attachment" class="q-mt-md">
 								<q-img
@@ -378,6 +579,48 @@ const handleBack = () => {
 						</q-carousel-slide>
 					</q-carousel>
 				</q-card-section>
+				<div
+					class="dimmed fullscreen"
+					v-if="userWhoLiked"
+					@click="userWhoLiked = false"
+				>
+					<q-card
+						class="absolute-center z-top overflow-auto"
+						style="width: 200px; height: 400px"
+					>
+						<q-card-section>
+							<q-btn
+								flat
+								color="primary"
+								icon="close"
+								@click="userWhoLiked = null"
+								round
+								size="11px"
+								class="absolute-top-right"
+							/>
+							<q-list dense>
+								<q-item v-for="user in post.Users" :key="user.id">
+									<q-item-section avatar>
+										<q-avatar size="40px" class="q-mr-md" slot="default">
+											<q-img
+												:src="user.picture"
+												fit="cover"
+												style="width: 100%; height: 100%"
+											/>
+										</q-avatar>
+									</q-item-section>
+									<q-item-section>
+										<q-item-label>
+											<q-item-label caption>
+												{{ user.username }}
+											</q-item-label>
+										</q-item-label>
+									</q-item-section>
+								</q-item>
+							</q-list>
+						</q-card-section>
+					</q-card>
+				</div>
 				<transition key="transition" name="slide">
 					<div
 						class="q-ml-sm"
