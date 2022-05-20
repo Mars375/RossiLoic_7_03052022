@@ -4,7 +4,7 @@ import { createApp } from 'vue'
 
 import router from '../src/router'
 
-import { Quasar, Notify } from 'quasar'
+import { Quasar, Notify, Dialog } from 'quasar'
 
 import vue3GoogleLogin from 'vue3-google-login'
 
@@ -28,7 +28,7 @@ import { createPinia } from 'pinia'
 const myApp = createApp(App)
 
 myApp.use(Quasar, {
-  plugins: { Notify }, // import Quasar plugins and add here
+  plugins: { Notify, Dialog }, // import Quasar plugins and add here
   iconSet: iconSet
 })
 

@@ -4,9 +4,11 @@ import { useUserStore } from "../stores/user";
 import { useCommentStore } from "../stores/comment";
 import { useAuthStore } from "../stores/auth";
 
-import { ref, watch, onMounted } from "vue";
+import { ref, watch, onMounted, onUpdated } from "vue";
 
 import { useQuasar } from "quasar";
+
+import jwt_decode from "jwt-decode";
 
 const postStore = usePostStore();
 const userStore = useUserStore();
@@ -14,10 +16,10 @@ const commentStore = useCommentStore();
 const authStore = useAuthStore();
 
 let postIds = [];
+const post = ref(null);
 const posts = ref([]);
 const $q = useQuasar();
 const content = ref("");
-const errorMessage = ref("");
 const image = ref(null);
 const imageUrl = ref("");
 const file = ref(null);
@@ -29,7 +31,7 @@ const postId = ref(null);
 const slide = ref(null);
 const editing = ref(false);
 const liked = ref(false);
-const tab = ref(null);
+const userWhoLiked = ref(false);
 
 watch(
 	() => postStore.posts,
@@ -44,6 +46,10 @@ watch(
 	}
 );
 
+onUpdated(() => {
+	alreadyLiked(slide.value);
+});
+
 onMounted(async () => {
 	await postStore.getAllPosts();
 	await userStore.getAllUsers();
@@ -57,13 +63,28 @@ const getUserInf = (userId) => {
 	return user;
 };
 
-const isCreator = (postId, userId) => {
+const isCreator = (content) => {
+	if (document.cookie.includes("jwt")) {
+		const token = document.cookie
+			.split(";")
+			.find((cookie) => cookie.includes("jwt"));
+		const decoded = jwt_decode(token.split("=")[1]);
+		if (decoded.isAdmin === true) {
+			return true;
+		}
+	}
 	if (!postStore.posts) {
 		return;
 	}
-	const post = postStore.posts.find((post) => post.id === postId);
-	const user = JSON.parse(localStorage.getItem("user"));
-	return userId === user.id;
+	if (content.UserId) {
+		const user = JSON.parse(localStorage.getItem("user"));
+		return content.UserId === user.id;
+	}
+	if (content.userId) {
+		const user = JSON.parse(localStorage.getItem("user"));
+		return content.userId === user.id;
+	}
+	return false;
 };
 
 const handleUpload = () => {
@@ -110,8 +131,8 @@ const timeSince = (date) => {
 
 const handleSubmit = async () => {
 	if (
-		(content.value.length > 0 || image.value) &&
-		!content.value.match(/^\s*$/)
+		(content.value.length > 0 && !content.value.match(/^\s*$/)) ||
+		image.value
 	) {
 		const data = new FormData();
 		data.append("content", content.value);
@@ -153,29 +174,46 @@ const handleSubmit = async () => {
 };
 
 const handleDelete = async (id) => {
-	await postStore.deletePost(id);
-	if (postStore.isError) {
-		$q.notify({
-			color: "red-5",
-			textColor: "white",
-			icon: "warning",
-			message: postStore.errorMessage,
+	$q.dialog({
+		title: "Delete post",
+		message: "Are you sure you want to delete this post?",
+		ok: "Yes",
+		cancel: true,
+		persistent: true,
+	})
+		.onOk(async () => {
+			await postStore.deletePost(id);
+			if (postStore.isError) {
+				$q.notify({
+					color: "red-5",
+					textColor: "white",
+					icon: "warning",
+					message: postStore.errorMessage,
+				});
+			} else {
+				$q.notify({
+					color: "green-5",
+					textColor: "white",
+					icon: "check",
+					message: "Post deleted",
+				});
+				posts.value = posts.value.filter((post) => post.id !== id);
+				if (postIds.indexOf(id) - 1 >= 0) {
+					slide.value = postIds[postIds.indexOf(id) - 1];
+				} else {
+					slide.value = postIds[0];
+				}
+				postIds = postIds.filter((postId) => postId !== id);
+			}
+		})
+		.onCancel(() => {
+			$q.notify({
+				color: "red-5",
+				textColor: "white",
+				icon: "warning",
+				message: "Post not deleted",
+			});
 		});
-	} else {
-		$q.notify({
-			color: "green-5",
-			textColor: "white",
-			icon: "check",
-			message: "Post deleted",
-		});
-		posts.value = posts.value.filter((post) => post.id !== id);
-		postIds = postIds.filter((postId) => postId !== id);
-		if (postIds.indexOf(id) - 1 >= 0) {
-			slide.value = postIds[postIds.indexOf(id) - 1];
-		} else {
-			slide.value = postIds[0];
-		}
-	}
 };
 
 const handleEdit = (id) => {
@@ -252,7 +290,10 @@ const handleSlideChange = (postId) => {
 };
 
 const handleComment = async () => {
-	if (comment.value.length > 0 && !comment.value.match(/^\s*$/)) {
+	if (
+		(comment.value.length > 0 && !comment.value.match(/^\s*$/)) ||
+		image.value
+	) {
 		await commentStore.createComment(comment.value, postId.value);
 		if (commentStore.isError) {
 			$q.notify({
@@ -271,6 +312,9 @@ const handleComment = async () => {
 			comment.value = "";
 			const copyOfComments = comments.value;
 			copyOfComments.unshift(commentStore.comment);
+			posts.value
+				.find((post) => post.id === postId.value)
+				.Comments.unshift(commentStore.comment);
 			comments.value = copyOfComments;
 		}
 	} else {
@@ -283,26 +327,48 @@ const handleComment = async () => {
 	}
 };
 
-const handleDeleteComment = async (id) => {
-	if (window.confirm("Are you sure you want to delete this comment?")) {
-		await commentStore.deleteComment(postId, id);
-		if (commentStore.isError) {
+const handleDeleteComment = (id) => {
+	$q.dialog({
+		title: "Delete comment",
+		message: "Are you sure you want to delete this comment?",
+		ok: "Yes",
+		cancel: true,
+		persistent: true,
+	})
+		.onOk(async () => {
+			await commentStore.deleteComment(postId, id);
+			if (commentStore.isError) {
+				$q.notify({
+					color: "red-4",
+					textColor: "white",
+					icon: "warning",
+					message: commentStore.errorMessage,
+				});
+			} else {
+				$q.notify({
+					color: "green-4",
+					textColor: "white",
+					icon: "check",
+					message: "Comment deleted",
+				});
+				const copyOfComments = comments.value.filter(
+					(comment) => comment.id !== id
+				);
+				comments.value = copyOfComments;
+				posts.value.find((post) => post.id === postId.value).Comments =
+					posts.value
+						.find((post) => post.id === postId.value)
+						.Comments.filter((comment) => comment.id !== id);
+			}
+		})
+		.onCancel(() => {
 			$q.notify({
-				color: "red-5",
+				color: "red-4",
 				textColor: "white",
 				icon: "warning",
-				message: commentStore.errorMessage,
+				message: "Comment not deleted",
 			});
-		} else {
-			$q.notify({
-				color: "green-5",
-				textColor: "white",
-				icon: "check",
-				message: "Comment deleted",
-			});
-			comments.value = comments.value.filter((comment) => comment.id !== id);
-		}
-	}
+		});
 };
 
 const handleLike = async (id) => {
@@ -336,6 +402,11 @@ const alreadyLiked = async (id) => {
 		liked.value = postStore.likes.find((like) => like.userId === user.id);
 		!liked.value ? (liked.value = false) : (liked.value = true);
 	}
+};
+
+const showWhoLiked = async (postLiked) => {
+	userWhoLiked.value = true;
+	post.value = postLiked;
 };
 </script>
 
@@ -492,7 +563,7 @@ const alreadyLiked = async (id) => {
 					</div>
 					<div
 						class="absolute-top-left"
-						v-if="authStore.isLoggedIn && isCreator(post.id, post.UserId)"
+						v-if="authStore.isLoggedIn && isCreator(post)"
 					>
 						<q-btn
 							flat
@@ -513,35 +584,65 @@ const alreadyLiked = async (id) => {
 					</div>
 					<div class="absolute-top-right">
 						<q-btn
+							class="q-mt-sm"
 							flat
 							color="primary"
 							icon="favorite"
-							@click="handleLike(post.id)"
+							@click.prevent="handleLike(post.id)"
 							round
-							size="11px"
+							size="14px"
 							v-if="liked"
-						/>
+						>
+							<q-btn
+								class="q-mt-md"
+								size="11px"
+								color="red"
+								floating
+								dense
+								padding="0 4px"
+								:label="post.likes ? post.likes : ''"
+								@click.stop="showWhoLiked(post)"
+								style="pointer-events: auto"
+							/>
+						</q-btn>
 						<q-btn
+							class="q-mt-sm"
 							flat
 							color="primary"
 							icon="favorite_border"
-							@click="handleLike(post.id)"
+							@click.prevent="handleLike(post.id)"
 							round
-							size="11px"
+							size="14px"
 							:disable="!authStore.isLoggedIn"
 							v-else
 						/>
-
 						<q-btn
+							class="q-mt-sm"
 							@click="
 								(commentIsVisible = !commentIsVisible) && showComments(post.id)
 							"
 							flat
 							color="primary"
-							icon="comment"
 							round
-							size="11px"
-						/>
+							size="14px"
+						>
+							<q-icon class="q-mt-xs" name="comment" />
+							<q-btn
+								class="q-mt-md"
+								size="11px"
+								color="red"
+								floating
+								dense
+								padding="0 4px"
+								:label="
+									post.Comments
+										? post.Comments.length > 0
+											? post.Comments.length
+											: ''
+										: ''
+								"
+							/>
+						</q-btn>
 					</div>
 					<div v-if="post.attachment" class="q-mt-md">
 						<q-img
@@ -566,6 +667,44 @@ const alreadyLiked = async (id) => {
 					</div>
 				</q-carousel-slide>
 			</q-carousel>
+			<div class="dimmed" v-if="userWhoLiked" @click="userWhoLiked = false">
+				<q-card
+					class="absolute-center z-top overflow-auto"
+					style="width: 200px; height: 400px"
+				>
+					<q-card-section>
+						<q-btn
+							flat
+							color="primary"
+							icon="close"
+							@click="userWhoLiked = null"
+							round
+							size="11px"
+							class="absolute-top-right"
+						/>
+						<q-list dense>
+							<q-item v-for="user in post.Users" :key="user.id">
+								<q-item-section avatar>
+									<q-avatar size="40px" class="q-mr-md" slot="default">
+										<q-img
+											:src="user.picture"
+											fit="cover"
+											style="width: 100%; height: 100%"
+										/>
+									</q-avatar>
+								</q-item-section>
+								<q-item-section>
+									<q-item-label>
+										<q-item-label caption>
+											{{ user.username }}
+										</q-item-label>
+									</q-item-label>
+								</q-item-section>
+							</q-item>
+						</q-list>
+					</q-card-section>
+				</q-card>
+			</div>
 			<transition key="transition" name="slide">
 				<div class="q-ml-sm" key="comment" v-if="commentIsVisible">
 					<!-- comment -->
@@ -642,6 +781,7 @@ const alreadyLiked = async (id) => {
 												@click="handleDeleteComment(comment.id)"
 												round
 												size="10px"
+												v-if="authStore.isLoggedIn && isCreator(comment)"
 											/>
 										</div>
 									</div>
