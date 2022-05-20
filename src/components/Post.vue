@@ -29,11 +29,15 @@ const postId = ref(null);
 const slide = ref(null);
 const editing = ref(false);
 const liked = ref(false);
+const tab = ref(null);
 
 watch(
 	() => postStore.posts,
 	() => {
-		posts.value = JSON.parse(JSON.stringify(postStore.posts));
+		if (!postStore.posts) {
+			return;
+		}
+		posts.value = postStore.posts;
 		postIds = posts.value.map((post) => post.id);
 		slide.value = postIds[0];
 		alreadyLiked(slide.value);
@@ -49,15 +53,17 @@ onMounted(async () => {
 });
 
 const getUserInf = (userId) => {
-	const user = JSON.parse(JSON.stringify(userStore.users)).find(
-		(user) => user.id === userId
-	);
+	const user = userStore.users.find((user) => user.id === userId);
 	return user;
 };
 
-const isCreator = (postId) => {
+const isCreator = (postId, userId) => {
+	if (!postStore.posts) {
+		return;
+	}
 	const post = postStore.posts.find((post) => post.id === postId);
-	return post.userId === authStore.user.id;
+	const user = JSON.parse(localStorage.getItem("user"));
+	return userId === user.id;
 };
 
 const handleUpload = () => {
@@ -236,7 +242,7 @@ const showComments = async (id) => {
 	if (!commentIsVisible.value) return;
 	postId.value = id;
 	await postStore.getPost(id);
-	const post = JSON.parse(JSON.stringify(postStore.post));
+	const post = postStore.post;
 	comments.value = sortComments(post.Comments);
 };
 
@@ -328,6 +334,7 @@ const alreadyLiked = async (id) => {
 		liked.value = false;
 	} else {
 		liked.value = postStore.likes.find((like) => like.userId === user.id);
+		!liked.value ? (liked.value = false) : (liked.value = true);
 	}
 };
 </script>
@@ -346,7 +353,7 @@ const alreadyLiked = async (id) => {
 				type="textarea"
 				filled
 				clearable
-				counter
+				:counter="content ? true : false"
 				autogrow
 				input-style="height: 200px;"
 			>
@@ -450,7 +457,7 @@ const alreadyLiked = async (id) => {
 				navigation
 				padding
 				arrows
-				height="700px"
+				height="650px"
 				class="shadow-1 rounded-borders"
 				style="width: 800px"
 				@update:model-value="handleSlideChange(slide)"
@@ -485,7 +492,7 @@ const alreadyLiked = async (id) => {
 					</div>
 					<div
 						class="absolute-top-left"
-						v-if="authStore.isLoggedIn && isCreator"
+						v-if="authStore.isLoggedIn && isCreator(post.id, post.UserId)"
 					>
 						<q-btn
 							flat
@@ -575,6 +582,7 @@ const alreadyLiked = async (id) => {
 									label="Comment"
 									dense
 									hide-underline
+									@keyup.enter="handleComment(postId)"
 								/>
 							</q-card-section>
 							<q-card-section class="q-pa-sm">

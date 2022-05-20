@@ -3,36 +3,43 @@ import { useAuthStore } from "../stores/auth";
 import { useUserStore } from "../stores/user";
 import { usePostStore } from "../stores/post";
 
-import { ref, onMounted, watch } from "vue";
+import { ref, onBeforeMount, watch } from "vue";
+
+import { useRouter } from "vue-router";
 
 import { useQuasar } from "quasar";
 
 const $q = useQuasar();
+const router = useRouter();
 const authStore = useAuthStore();
 const userStore = useUserStore();
 const postStore = usePostStore();
-const tab = ref(null);
 const userId = ref(null);
 const isLoading = ref(true);
 const slide = ref(null);
 const posts = ref([]);
+const liked = ref(false);
+const commentIsVisible = ref(false);
+const postId = ref(null);
+const comments = ref([]);
+const comment = ref("");
 let postIds = [];
 
 watch(
 	() => postStore.posts,
 	() => {
-		posts.value = JSON.parse(JSON.stringify(postStore.posts));
+		if (!postStore.posts) {
+			return;
+		}
+		posts.value = postStore.posts;
 		postIds = posts.value.map((post) => post.id);
 		slide.value = postIds[0];
+		alreadyLiked(slide.value);
 	}
 );
 
-onMounted(async () => {
-	if (userStore.user) {
-		userId.value = userStore.user.id;
-	} else {
-		userId.value = JSON.parse(localStorage.getItem("user")).id;
-	}
+onBeforeMount(async () => {
+	userId.value = JSON.parse(localStorage.getItem("user")).id;
 	await postStore.getPostsOfUser(userId.value);
 	await userStore.getUser(userId.value);
 	await userStore.getAllUsers();
@@ -42,9 +49,7 @@ onMounted(async () => {
 });
 
 const getUserInf = (userId) => {
-	const user = JSON.parse(JSON.stringify(userStore.users)).find(
-		(user) => user.id === userId
-	);
+	const user = userStore.users.find((user) => user.id === userId);
 	return user;
 };
 
@@ -75,6 +80,90 @@ const timeSince = (date) => {
 		return seconds + " s";
 	}
 };
+
+const isCreator = (postId, userId) => {
+	if (!postStore.posts) {
+		return;
+	}
+	const post = postStore.posts.find((post) => post.id === postId);
+	const user = JSON.parse(localStorage.getItem("user"));
+	return userId === user.id;
+};
+
+const showComments = async (id) => {
+	if (!commentIsVisible.value) return;
+	postId.value = id;
+	await postStore.getPost(id);
+	const post = postStore.post;
+	comments.value = sortComments(post.Comments);
+};
+
+const handleDeleteComment = async (id) => {
+	if (window.confirm("Are you sure you want to delete this comment?")) {
+		await commentStore.deleteComment(postId, id);
+		if (commentStore.isError) {
+			$q.notify({
+				color: "red-5",
+				textColor: "white",
+				icon: "warning",
+				message: commentStore.errorMessage,
+			});
+		} else {
+			$q.notify({
+				color: "green-5",
+				textColor: "white",
+				icon: "check",
+				message: "Comment deleted",
+			});
+			comments.value = comments.value.filter((comment) => comment.id !== id);
+		}
+	}
+};
+
+const handleLike = async (id) => {
+	await postStore.likePost(id);
+	if (postStore.isError) {
+		$q.notify({
+			color: "red-5",
+			textColor: "white",
+			icon: "warning",
+			message: postStore.errorMessage,
+		});
+	} else {
+		$q.notify({
+			color: "green-5",
+			textColor: "white",
+			icon: "check",
+			message: postStore.likeMessage,
+		});
+		const post = posts.value.find((post) => post.id === id);
+		post.likes = postStore.post.likes;
+		alreadyLiked(id);
+	}
+};
+
+const alreadyLiked = async (id) => {
+	await postStore.getLikes(id);
+	const user = JSON.parse(localStorage.getItem("user"));
+	if (!user) {
+		liked.value = false;
+	} else {
+		liked.value = postStore.likes.find((like) => like.userId === user.id);
+		!liked.value ? (liked.value = false) : (liked.value = true);
+	}
+};
+
+const sortComments = (comments) => {
+	comments.sort((a, b) => {
+		return new Date(b.createdAt) - new Date(a.createdAt);
+	});
+	return comments;
+};
+
+const handleBack = () => {
+	localStorage.removeItem("tab");
+	router.go();
+};
 </script>
 
 <template>
@@ -91,6 +180,13 @@ const timeSince = (date) => {
 				contain
 				class="pa-0"
 				style="height: 300px"
+			/>
+			<q-icon
+				name="arrow_back"
+				@click="handleBack"
+				class="q-mt-xl q-ml-lg absolute-top-left cursor-pointer"
+				size="40px"
+				color="primary"
 			/>
 			<q-card
 				flat
@@ -177,7 +273,7 @@ const timeSince = (date) => {
 						navigation
 						padding
 						arrows
-						height="600px"
+						height="700px"
 						class="shadow-1 rounded-borders q-mx-auto"
 						style="width: 80%"
 					>
@@ -217,14 +313,6 @@ const timeSince = (date) => {
 								class="absolute-top-left"
 								v-if="authStore.isLoggedIn && isCreator"
 							>
-								<q-btn
-									flat
-									color="primary"
-									icon="edit"
-									@click="(editing = true) && handleEdit(post.id)"
-									round
-									size="11px"
-								/>
 								<q-btn
 									flat
 									color="primary"
@@ -290,6 +378,90 @@ const timeSince = (date) => {
 						</q-carousel-slide>
 					</q-carousel>
 				</q-card-section>
+				<transition key="transition" name="slide">
+					<div
+						class="q-ml-sm"
+						key="comment"
+						v-if="commentIsVisible"
+						style="width: 100%; height: 250px"
+					>
+						<!-- comment -->
+						<q-card
+							transition-show="flip-up"
+							transition-hide="flip-down"
+							style="width: 100%; height: 100%"
+							class="shadow-1 rounded-borders"
+						>
+							<div v-if="authStore.isLoggedIn">
+								<q-card-section class="q-pa-sm" style="height: 50px">
+									<q-input
+										v-model="comment"
+										label="Comment"
+										dense
+										hide-underline
+										@keyup.enter="handleComment(postId)"
+									/>
+								</q-card-section>
+								<q-card-section class="q-pa-sm">
+									<q-btn
+										color="primary"
+										@click="handleComment(postId)"
+										label="Comment"
+										outline
+										class="float-right"
+										:disable="!comment"
+									/>
+								</q-card-section>
+							</div>
+							<q-card-section
+								class="q-mt-xl overflow-auto"
+								style="height: 130px"
+							>
+								<q-list>
+									<q-item
+										v-for="comment in comments"
+										:key="comment.id"
+										class="q-ml-sm column"
+									>
+										<div class="flex row align-centers">
+											<q-avatar size="40px" class="q-mr-md" slot="default">
+												<q-img
+													:src="getUserInf(comment.userId).picture"
+													fit="cover"
+													style="width: 100%; height: 100%"
+												/>
+											</q-avatar>
+											<div>
+												<div class="row">
+													<q-item-label class="q-ml-sm" slot="default">
+														{{ getUserInf(comment.userId).lastname }}
+														{{ getUserInf(comment.userId).firstname }}
+													</q-item-label>
+													<div class="q-ml-xs">
+														<q-item-label caption slot="default">
+															— {{ timeSince(comment.updatedAt) }}
+														</q-item-label>
+													</div>
+												</div>
+												<div class="q-ml-sm">
+													<q-item-label caption slot="default">
+														@{{ getUserInf(comment.userId).username }}
+													</q-item-label>
+												</div>
+											</div>
+										</div>
+										<div
+											class="q-mt-md flex q-mb-md"
+											style="word-break: break-word"
+										>
+											{{ comment.content }}
+										</div>
+									</q-item>
+								</q-list>
+							</q-card-section>
+						</q-card>
+					</div>
+				</transition>
 			</q-card>
 		</div>
 	</div>

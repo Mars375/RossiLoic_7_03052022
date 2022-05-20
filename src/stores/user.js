@@ -31,7 +31,6 @@ export const useUserStore = defineStore("userStore", {
         if (response.status === 200) {
           this.isError = false
           this.user = response.data
-          console.log(this.user);
         } else {
           this.isError = true
         }

@@ -127,7 +127,7 @@ export const usePostStore = defineStore("postStore", {
         const response = await axios.get(`${API_URL}/post/${id}/like`, { withCredentials: true });
         if (response.status === 200) {
           this.isError = false
-          this.like = response.data.likes
+          this.likes = response.data.likes
         } else {
           this.isError = true
         }

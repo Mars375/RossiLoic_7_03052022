@@ -7,13 +7,17 @@ import Profil from "../src/components/Profil.vue";
 
 import { useAuthStore } from "../src/stores/auth";
 
-import { ref, markRaw, watch } from "vue";
+import { useRouter } from "vue-router";
+
+import { ref, markRaw, watch, onMounted } from "vue";
 
 import { useQuasar } from "quasar";
 
 const $q = useQuasar();
 
 const store = useAuthStore();
+
+const router = useRouter();
 
 const tab = ref(null);
 
@@ -30,11 +34,19 @@ watch(
 	{ deep: true } // <-- this is the important part
 );
 
+onMounted(() => {
+	const storage = localStorage.getItem("tab");
+	if (storage) {
+		changeTab(storage);
+	}
+});
+
 user.value = JSON.parse(localStorage.getItem("user"));
 
 function toggleRightDrawer() {
 	rightDrawerOpen.value = !rightDrawerOpen.value;
 }
+
 function changeTab(compName) {
 	const lookup = {
 		Signup,
@@ -44,12 +56,15 @@ function changeTab(compName) {
 		Profil,
 	};
 	tab.value = markRaw(lookup[compName]);
+	localStorage.setItem("tab", compName);
 	rightDrawerOpen.value = false;
 }
+
 function newPost() {
 	changeTab("Post");
 	toggleRightDrawer();
 }
+
 function logout() {
 	store.logOut();
 	if (store.isError) {
@@ -67,6 +82,8 @@ function logout() {
 			message: "You're logged out",
 		});
 		rightDrawerOpen.value = false;
+		router.push("/");
+		localStorage.removeItem("tab");
 	}
 }
 </script>
