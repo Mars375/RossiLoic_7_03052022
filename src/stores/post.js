@@ -77,7 +77,6 @@ export const usePostStore = defineStore("postStore", {
           this.errorMessage = response.data.message
         }
       } catch (error) {
-        console.log(error);
         this.isError = true
         this.errorMessage = error.message
       }
