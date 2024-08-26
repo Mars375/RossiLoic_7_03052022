@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: my-vue-app
+    name: groupomania-front
     env: static
     staticPublishPath: dist
     buildCommand: npm install && npm run build
