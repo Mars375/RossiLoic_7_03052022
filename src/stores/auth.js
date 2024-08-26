@@ -1,6 +1,6 @@
 import { defineStore } from "pinia";
 
-const API_URL = `${location.protocol}//${location.hostname}:3000`;
+const API_URL = "http://localhost:3000";
 import axios from "axios"
 
 export const useAuthStore = defineStore('authStore', {

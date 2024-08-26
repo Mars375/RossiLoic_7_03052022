@@ -515,7 +515,7 @@ const showWhoLiked = async (postLiked) => {
 				</q-card-section>
 			</q-card>
 		</div>
-		<div class="q-pa-md row justify-center move" v-else>
+		<div class="q-pa-md row justify-center move" v-if="posts.length > 0">
 			<q-carousel
 				v-model="slide"
 				transition-prev="slide-right"
@@ -648,7 +648,7 @@ const showWhoLiked = async (postLiked) => {
 						<q-img
 							:src="post.attachment"
 							fit="cover"
-							style="width: 100%; height: 100%"
+							style="width: 100%; height: 500px"
 						/>
 						<div
 							class="q-mt-xl text-center"
@@ -792,6 +792,9 @@ const showWhoLiked = async (postLiked) => {
 					</q-card>
 				</div>
 			</transition>
+		</div>
+		<div class="q-pa-md row justify-center move" v-else>
+			<p class="text-center">No posts yet</p>
 		</div>
 	</div>
 </template>
