@@ -27,7 +27,7 @@ export const useAuthStore = defineStore('authStore', {
     },
     async logIn(user) {
       try {
-        const data = await axios.post(API_URL + '/auth/login', user, { withCredentials: true })
+        const data = await axios.post(API_URL + '/auth/login', user, { withCredentials: true });
         if (data.status === 200) {
           this.isError = false
           this.isLoggedIn = true
@@ -48,7 +48,7 @@ export const useAuthStore = defineStore('authStore', {
     },
     async sendEmail(email) {
       try {
-        await axios.post(API_URL + '/password-reset', { email }, { withCredentials: true })
+        await axios.post(API_URL + '/password-reset', { email }, { withCredentials: true });
         this.isError = false
       }
       catch (error) {
@@ -62,7 +62,7 @@ export const useAuthStore = defineStore('authStore', {
     },
     async resetPassword(token, password) {
       try {
-        await axios.post(API_URL + '/password-reset/' + token, { password }, { withCredentials: true })
+        await axios.post(API_URL + '/password-reset/' + token, { password }, { withCredentials: true });
         this.isError = false
       }
       catch (error) {
@@ -76,7 +76,7 @@ export const useAuthStore = defineStore('authStore', {
     },
     async register(user) {
       try {
-        const data = await axios.post(API_URL + '/auth/signup', user, { withCredentials: true })
+        const data = await axios.post(API_URL + '/auth/signup', user, { withCredentials: true });
         this.isError = false
         this.isLoggedIn = true
         this.user = data.data.user
@@ -99,7 +99,7 @@ export const useAuthStore = defineStore('authStore', {
     },
     async logOut() {
       try {
-        await axios.post(API_URL + '/auth/logout', {}, { withCredentials: true })
+        await axios.post(API_URL + '/auth/logout', {}, { withCredentials: true });
         this.isLoggedIn = false
         this.isError = false
         this.errorMessage = ""
@@ -112,3 +112,19 @@ export const useAuthStore = defineStore('authStore', {
     },
   }
 })
+
+async function checkAuth() {
+  const store = useAuthStore();
+  try {
+    const response = await axios.get(`${API_URL}/auth/check-auth`, { withCredentials: true });
+    if (response.status === 200) {
+      store.isLoggedIn = true;
+      store.user = response.data.user;
+      console.log("You're now logged in");
+    }
+  } catch (error) {
+    store.isLoggedIn = false;
+    localStorage.removeItem('user');
+    console.log("You're not logged in");
+  }
+}
