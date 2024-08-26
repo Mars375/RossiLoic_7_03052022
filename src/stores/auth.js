@@ -1,6 +1,6 @@
 import { defineStore } from "pinia";
 
-const API_URL = "http://localhost:3000";
+const API_URL = "https://groupomania-back.onrender.com";
 import axios from "axios"
 
 export const useAuthStore = defineStore('authStore', {
@@ -28,9 +28,14 @@ export const useAuthStore = defineStore('authStore', {
     async logIn(user) {
       try {
         const data = await axios.post(API_URL + '/auth/login', user, { withCredentials: true })
-        this.isError = false
-        this.isLoggedIn = true
-        this.user = data.data.user
+        if (data.status === 200) {
+          this.isError = false
+          this.isLoggedIn = true
+          this.user = data.data.user
+        } else {
+          this.isError = true
+          this.errorMessage = "Something went wrong"
+        }
       }
       catch (error) {
         if (error.response.status === 401) {

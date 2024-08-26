@@ -515,7 +515,7 @@ const showWhoLiked = async (postLiked) => {
 				</q-card-section>
 			</q-card>
 		</div>
-		<div class="q-pa-md row justify-center move" v-if="posts.length > 0">
+		<div class="q-pa-md row justify-center move" v-else-if="posts.length > 0">
 			<q-carousel
 				v-model="slide"
 				transition-prev="slide-right"

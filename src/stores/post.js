@@ -1,6 +1,6 @@
 import { defineStore } from "pinia";
 
-const API_URL = "http://localhost:3000";
+const API_URL = "https://groupomania-back.onrender.com";
 import axios from "axios"
 
 // Configurer Axios pour inclure les cookies par défaut
