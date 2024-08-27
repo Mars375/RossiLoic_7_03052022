@@ -6,8 +6,6 @@ import router from '../src/router'
 
 import { Quasar, Notify, Dialog } from 'quasar'
 
-import vue3GoogleLogin from 'vue3-google-login'
-
 // Import icon libraries
 import '@quasar/extras/roboto-font/roboto-font.css'
 import '@quasar/extras/material-icons/material-icons.css'
@@ -30,10 +28,6 @@ const myApp = createApp(App)
 myApp.use(Quasar, {
   plugins: { Notify, Dialog }, // import Quasar plugins and add here
   iconSet: iconSet
-})
-
-myApp.use(vue3GoogleLogin, {
-  clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID,
 })
 
 myApp.use(router)

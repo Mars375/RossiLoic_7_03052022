@@ -19,17 +19,23 @@ const router = createRouter({
 async function checkAuth() {
   const store = useAuthStore();
   const API_URL = "https://groupomania-back.onrender.com";
+
   try {
     const response = await axios.get(`${API_URL}/auth/check-auth`, { withCredentials: true });
-    if (response.status === 200) {
+    if (response.data.isAuthenticated) {
       store.isLoggedIn = true;
+      localStorage.setItem('user', JSON.stringify(response.data.user));
       store.user = response.data.user;
       console.log("You're now logged in");
+    } else {
+      store.isLoggedIn = false;
+      localStorage.removeItem('user');
+      console.log(response.data.message);
     }
   } catch (error) {
     store.isLoggedIn = false;
     localStorage.removeItem('user');
-    console.log("You're not logged in");
+    console.error("An error occurred while checking auth:", error);
   }
 }
 

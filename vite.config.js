@@ -17,5 +17,9 @@ export default defineConfig({
     quasar({
       sassVariables: 'src/quasar-variables.sass'
     })
-  ]
+  ],
+  define: {
+    '__VUE_PROD_HYDRATION_MISMATCH_DETAILS__': false,
+    // Ajoutez d'autres flags si nécessaire
+  }
 })

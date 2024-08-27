@@ -1,14 +1,9 @@
 <script setup>
 import { useAuthStore } from "../stores/auth";
-
-import { useUserStore } from "../stores/user";
-
 import { useQuasar } from "quasar";
-
 import { ref } from "vue";
 
 const store = useAuthStore();
-const userStore = useUserStore();
 const $q = useQuasar();
 const emit = defineEmits();
 
@@ -16,7 +11,6 @@ const email = ref("");
 const password = ref("");
 const staySign = ref("false");
 const isPwd = ref(true);
-const errorMessage = ref("");
 
 async function onSubmit() {
 	const user = {
@@ -44,28 +38,6 @@ async function onSubmit() {
 		}, 1000);
 	}
 }
-
-const callback = async (response) => {
-	await store.googleLogin(response);
-	if (store.isError) {
-		$q.notify({
-			color: "red-5",
-			textColor: "white",
-			icon: "warning",
-			message: store.errorMessage,
-		});
-	} else {
-		$q.notify({
-			color: "green-4",
-			textColor: "white",
-			icon: "cloud_done",
-			message: "You're logged in",
-		});
-		setTimeout(() => {
-			emit("close");
-		}, 1000);
-	}
-};
 </script>
 
 <template>
@@ -142,14 +114,12 @@ const callback = async (response) => {
 								round
 								class="bg-blue text-white"
 							></q-btn>
-							<GoogleLogin :callback="callback">
-								<q-btn
-									icon="fab fa-google"
-									size="sm"
-									round
-									class="bg-red text-white"
-								></q-btn>
-							</GoogleLogin>
+							<q-btn
+								icon="fab fa-google"
+								size="sm"
+								round
+								class="bg-red text-white"
+							></q-btn>
 							<q-btn
 								icon="fab fa-linkedin-in"
 								size="sm"

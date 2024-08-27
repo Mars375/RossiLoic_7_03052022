@@ -72,6 +72,7 @@ export const usePostStore = defineStore("postStore", {
       }
     },
     async createPost(post) {
+      console.log(post);
       try {
         const response = await axios.post(`${API_URL}/post`, post, {
           withCredentials: true,
