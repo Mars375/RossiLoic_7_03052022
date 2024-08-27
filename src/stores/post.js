@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
+import axios from "axios";
 
 const API_URL = "https://groupomania-back.onrender.com";
-import axios from "axios"
 
 // Configurer Axios pour inclure les cookies par défaut
 axios.defaults.withCredentials = true;
@@ -19,7 +19,7 @@ export const usePostStore = defineStore("postStore", {
   actions: {
     async getAllPosts() {
       try {
-        const response = await axios.get(`${API_URL}/post`, { withCredentials: true });
+        const response = await axios.get(`${API_URL}/post`);
         if (response.status === 200) {
           this.isError = false;
           this.posts = response.data.posts;
@@ -34,49 +34,46 @@ export const usePostStore = defineStore("postStore", {
     },
     async getPostsOfUser(id) {
       try {
-        const response = await axios.get(`${API_URL}/post/user/${id}`, { withCredentials: true });
+        const response = await axios.get(`${API_URL}/post/user/${id}`);
         if (response.status === 200) {
-          this.isError = false
-          this.posts = response.data.posts
+          this.isError = false;
+          this.posts = response.data.posts;
         } else {
-          this.isError = true
+          this.isError = true;
         }
       } catch (error) {
-        this.isError = true
+        this.isError = true;
       }
     },
     async getPostByCategories(categories) {
       try {
-        const response = await axios.get(`${API_URL}/post/category/${categories}`, { withCredentials: true });
+        const response = await axios.get(`${API_URL}/post/category/${categories}`);
         if (response.status === 200) {
-          this.isError = false
-          this.posts = response.data.posts
+          this.isError = false;
+          this.posts = response.data.posts;
         } else {
-          this.isError = true
+          this.isError = true;
         }
       } catch (error) {
-        this.isError = true
+        this.isError = true;
       }
     },
     async getPost(id) {
       try {
-        const response = await axios.get(`${API_URL}/post/${id}`, { withCredentials: true });
+        const response = await axios.get(`${API_URL}/post/${id}`);
         if (response.status === 200) {
-          this.isError = false
-          this.post = response.data.post
+          this.isError = false;
+          this.post = response.data.post;
         } else {
-          this.isError = true
+          this.isError = true;
         }
       } catch (error) {
-        this.isError = true
+        this.isError = true;
       }
     },
     async createPost(post) {
-      console.log(post);
       try {
-        const response = await axios.post(`${API_URL}/post`, post, {
-          withCredentials: true,
-        });
+        const response = await axios.post(`${API_URL}/post`, post);
         if (response.status === 200 || response.status === 201) {
           this.isError = false;
           this.post = response.data.post;
@@ -95,7 +92,7 @@ export const usePostStore = defineStore("postStore", {
     },
     async updatePost(id, post) {
       try {
-        const response = await axios.put(`${API_URL}/post/${id}`, post, { withCredentials: true });
+        const response = await axios.put(`${API_URL}/post/${id}`, post);
         if (response.status === 200) {
           this.isError = false;
           this.post = response.data.post;
@@ -108,10 +105,11 @@ export const usePostStore = defineStore("postStore", {
     },
     async deletePost(id) {
       try {
-        const response = await axios.delete(`${API_URL}/post/${id}`, { withCredentials: true });
+        const response = await axios.delete(`${API_URL}/post/${id}`);
         if (response.status === 200) {
           this.isError = false;
-          this.post = response.data.post;
+          this.posts = this.posts.filter(post => post.id !== id);
+          this.likes = this.likes.filter(like => like.postId !== id);
         } else {
           this.isError = true;
         }
@@ -121,7 +119,7 @@ export const usePostStore = defineStore("postStore", {
     },
     async likePost(id) {
       try {
-        const response = await axios.post(`${API_URL}/post/${id}/like`, {}, { withCredentials: true });
+        const response = await axios.post(`${API_URL}/post/${id}/like`, {});
         if (response.status === 200) {
           this.isError = false;
           this.post = response.data.post;
@@ -138,7 +136,7 @@ export const usePostStore = defineStore("postStore", {
         return;
       }
       try {
-        const response = await axios.get(`${API_URL}/post/${id}/like`, { withCredentials: true });
+        const response = await axios.get(`${API_URL}/post/${id}/like`);
         if (response.status === 200) {
           this.isError = false;
           this.likes = response.data.likes;
@@ -150,4 +148,4 @@ export const usePostStore = defineStore("postStore", {
       }
     }
   }
-})
+});

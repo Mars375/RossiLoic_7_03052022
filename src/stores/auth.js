@@ -12,19 +12,6 @@ export const useAuthStore = defineStore('authStore', {
     user: {},
   }),
   actions: {
-    async googleLogin(token) {
-      const data = await axios.post(`${API_URL}/auth/google`, token, { withCredentials: true });
-      if (data.status === 200) {
-        this.isLoggedIn = true
-        this.isError = false
-        this.errorMessage = ""
-        this.user = data.data.user
-      } else {
-        this.isLoggedIn = false
-        this.isError = true
-        this.errorMessage = "Something went wrong"
-      }
-    },
     async logIn(user) {
       try {
         const data = await axios.post(API_URL + '/auth/login', user, { withCredentials: true });
@@ -112,19 +99,3 @@ export const useAuthStore = defineStore('authStore', {
     },
   }
 })
-
-async function checkAuth() {
-  const store = useAuthStore();
-  try {
-    const response = await axios.get(`${API_URL}/auth/check-auth`, { withCredentials: true });
-    if (response.status === 200) {
-      store.isLoggedIn = true;
-      store.user = response.data.user;
-      console.log("You're now logged in");
-    }
-  } catch (error) {
-    store.isLoggedIn = false;
-    localStorage.removeItem('user');
-    console.log("You're not logged in");
-  }
-}

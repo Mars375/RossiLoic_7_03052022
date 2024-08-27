@@ -648,7 +648,7 @@ const showWhoLiked = async (postLiked) => {
 						<q-img
 							:src="post.attachment"
 							fit="cover"
-							style="width: 100%; height: 500px"
+							style="width: 100%; max-height: 400px"
 						/>
 						<div
 							class="q-mt-xl text-center"
